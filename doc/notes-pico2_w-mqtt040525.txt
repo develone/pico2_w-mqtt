@@ -1,0 +1,22 @@
+04/05/25
+    these are required in .bashrc
+    export PICO_SDK_PATH=/home/devel/pico2/pico-sdk
+    export FREERTOS_KERNEL_PATH=/home/devel/pico2/freertos-lib/FreeRTOS-Kernel
+    export PICTOOL_FETCH_FROM_GITHUB=/home/devel/pico2/BUILT_PICOTOOL
+    pico_w folder from pi4-60 to pico2_2 pico2_w-pico_w.txt is tree of pico2_w
+    this is the line that connects to the WiFi
+https://github.com/develone/pico2_w-mqtt/blob/main/pico2_w/wifi/freertos/iperf/picow2_freertos_iperf.c#L839
+3 scripts to build 1 1remote.sh, 3 3remotes.sh, or 6 6remotes.sh 
+       build_cli.sh
+        doc/notes-pico2_w-mqtt040525.txt
+        pi_tcp_tests/cli1
+        pi_tcp_tests/cli2
+        pi_tcp_tests/cli3
+        pi_tcp_tests/cli4
+        pi_tcp_tests/cli5
+        pi_tcp_tests/cli6
+devel@pi4-30:~/pico_w-mqtt/pi_tcp_tests $ ./cli1
+Socket created successfully
+Connected with server successfully
+Starting FreeRTOS on core 0: ver 0.0.11 remote2 Connected. iperf server 192.168.1.178 4001  mqtt_ip = 0xe601a8c0 mqtt_port = 1883  batt task 0x04c -> 0.061230 V 05/04/2025 16:13:54 345678901230123456789012345678901234567890123456789012345678901234567890123012345678901234567890123456789012345678901234567890123456789012301234567890123456789012345678901234567890123456789012345678901230���
+
