@@ -5,7 +5,7 @@
  */
 #include "tcp_debug.h"
 #include "head_tail.h"
-//#include "mqtt_extra.h"
+#include "mqtt_extra.h"
 
  
 #include "pico/cyw43_arch.h"
@@ -19,16 +19,27 @@
 #include "lwip/netif.h"
 #include "lwip/ip4_addr.h"
 #include "lwip/apps/lwiperf.h"
-
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
- 
 #include "FreeRTOS.h"
 #include "task.h"
+#ifndef RUN_FREERTOS_ON_CORE
+	#define RUN_FREERTOS_ON_CORE 0
+#endif
 char remotes[6][8]={"remote1","remote2","remote3","remote4","remote5","remote6"};
  
 int rr[6];
 
+#define BATT_TASK_PRIORITY				( tskIDLE_PRIORITY + 11UL )
+#define CLOSE_TASK_PRIORITY				( tskIDLE_PRIORITY + 10UL )
+#define OPEN_TASK_PRIORITY				( tskIDLE_PRIORITY + 9UL )
+#define ADC_TASK_PRIORITY				( tskIDLE_PRIORITY + 8UL )
+//#define NTP_TASK_PRIORITY				( tskIDLE_PRIORITY + 5UL )
+#define WATCHDOG_TASK_PRIORITY			( tskIDLE_PRIORITY + 1UL )
+//#define MQTT_TASK_PRIORITY				( tskIDLE_PRIORITY + 4UL )  
+#define SOCKET_TASK_PRIORITY			( tskIDLE_PRIORITY + 6UL )
+#define TEST_TASK_PRIORITY				( tskIDLE_PRIORITY + 2UL )
+#define BLINK_TASK_PRIORITY				( tskIDLE_PRIORITY + 3UL )
 
 #include "lwip/apps/mqtt.h"
 #include "mqtt_example.h"
@@ -102,6 +113,40 @@ char *datetime_str = &datetime_buf[0];
 /*needed for GPIO from pico-examples/gpio/hello_7segment/hello_7segment.c
 gpio will be an additional freertos task
 */
+#define FIRST_GPIO 18
+#define BUTTON_GPIO (FIRST_GPIO+7)
+
+uint tbits25;
+char bits25[2];
+u8_t reset_remote=0;
+int val = 0;
+int loop;
+// This array converts a number 0-9 to a bit pattern to send to the GPIOs
+int bits[10] = {
+        0x3f,  // 0
+        0x3e,  // 1
+        0x3d,  // 2
+        0x3c,  // 3
+        0x3b,  // 4
+        0x3a,  // 5
+        0x39,  // 6
+        0x38,  // 7
+        0x37,  // 8
+        0x36   // 9
+};
+// This array converts a number 0-9 to a bit pattern to send to the GPIOs
+int32_t mask;
+
+u8_t lp;
+u8_t alarm_hour;
+u8_t alarm_min;
+u8_t alarm_sec;
+u8_t remote_index;
+u8_t cmd;
+char houralarm[3];
+char minalarm[3];
+char secalarm[3];
+char tmp[80];
 char * ptrhead;
 char * ptrtail;
 char * ptrendofbuf;
@@ -113,13 +158,7 @@ datetime_t t;*/
 #ifndef RUN_FREERTOS_ON_CORE
 #define RUN_FREERTOS_ON_CORE 0
 #endif
-#define BATT_TASK_PRIORITY
-#define SOCKET_TASK_PRIORITY			( tskIDLE_PRIORITY + 6UL )
-#define ADC_TASK_PRIORITY				( tskIDLE_PRIORITY + 8UL )
-#define NTP_TASK_PRIORITY				( tskIDLE_PRIORITY + 5UL )
-#define TEST_TASK_PRIORITY				( tskIDLE_PRIORITY + 2UL )
-#define BLINK_TASK_PRIORITY				( tskIDLE_PRIORITY + 1UL )
-
+ 
 #include "lwip/apps/mqtt.h"
 #include "mqtt_example.h"
 #include "pico/util/datetime.h"
@@ -224,7 +263,18 @@ void batt_task(__unused void *params) {
     }
 
 }
+void watchdog_task(__unused void *params) {
+    //bool on = false;
 
+    while (true) {
+	 
+	//if (wifi_connected == 0) watchdog_update();
+	watchdog_update();
+    
+ 
+       vTaskDelay(100);
+    }
+}
 /*needed for ntp*/
 /*
 void ntp_task(__unused void *params) {
@@ -295,17 +345,6 @@ void blink_task(__unused void *params) {
     }
 }
 
-void preptopidata() {
-sprintf(client_message,"0123456789012345678901234567890123456789012345678901234567890123\
-0123456789012345678901234567890123456789012345678901234567890123\
-0123456789012345678901234567890123456789012345678901234567890123\
-0123456789012345678901234567890123456789012345678901234567890123\
-0123456789012345678901234567890123456789012345678901234567890123\
-012345678901234567890123456789012345678901234567890123456789012301234567890123456789012345\
-6789012345678901234567890123456789012301234567890123456789012345678901234567890123456789012345678901\n");
- 
-}
-
 void main_task(__unused void *params) {
     if (cyw43_arch_init()) {
         printf("failed to initialise\n");
@@ -343,6 +382,49 @@ void main_task(__unused void *params) {
 
     cyw43_arch_deinit();
 }
+
+void preptopidata() {
+sprintf(client_message,"0123456789012345678901234567890123456789012345678901234567890123\
+0123456789012345678901234567890123456789012345678901234567890123\
+0123456789012345678901234567890123456789012345678901234567890123\
+0123456789012345678901234567890123456789012345678901234567890123\
+0123456789012345678901234567890123456789012345678901234567890123\
+012345678901234567890123456789012345678901234567890123456789012301234567890123456789012345\
+6789012345678901234567890123456789012301234567890123456789012345678901234567890123456789012345678901\n");
+ 
+}
+/*
+void set_rtc(datetime_t *pt, datetime_t *pt_ntp,datetime_t *palarm) {
+	if(rtc_set_flag==0) {
+		pt->year = pt_ntp->year;
+		pt->month = pt_ntp->month; 
+		pt->day = pt_ntp->day;
+		//pt->dotw = 0;
+		pt->hour = pt_ntp->hour;
+		pt->min = pt_ntp->min;
+		pt->sec = pt_ntp->sec;
+		palarm->year = pt_ntp->year;
+		palarm->month = pt_ntp->month;
+		palarm->day = pt_ntp->day;
+		//palarm->dotw = 0;
+		palarm->hour = pt_ntp->hour;
+		palarm->min = pt_ntp->min + 1;
+		palarm->sec = pt_ntp->sec;
+		rtc_set_flag=1;
+    	// Start the RTC
+    	rtc_init();
+    	rtc_set_datetime(&t);
+		sleep_us(64);
+		rtc_set_alarm(&alarm, &alarm_callback);
+
+	}
+        rtc_get_datetime(&t);
+        datetime_to_str(datetime_str, sizeof(datetime_buf), &t);
+        //printf("\r%s      ", datetime_str);
+        //printf("0x%x 0x%x\n",&t,&alarm);
+        //printf("pt 0x%x palarm 0x%x\n",pt,palarm);
+}
+*/
 
 void vLaunch( void) {
     TaskHandle_t task;
