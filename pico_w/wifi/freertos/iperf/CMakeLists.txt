@@ -1,15 +1,11 @@
 add_executable(picow_freertos_iperf_server_mqtt
+        picow_freertos_iperf.c
 		 tcp_debug.c
 		 tcp_debug.h
 		head_tail.c
 		head_tail.h	
-        picow_freertos_iperf.c
-       
 		mqtt.c
 		mqtt_example.h
-
-		
-		
         )
 target_compile_definitions(picow_freertos_iperf_server_mqtt PRIVATE
         WIFI_SSID=\"${WIFI_SSID}\"
