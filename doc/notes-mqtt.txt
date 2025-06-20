@@ -1,0 +1,59 @@
+06/19/25
+
+remote5 is a pico2_w 
+remote1, remote2 and remote3 pico_w
+devel@pi5-70:~ $ ./scripts-rpi/mosquitto/mos-q.sh 
+T = 31.35 C 0x03d batt = 0.05 remote5 
+T = 29.01 C 0x042 batt = 0.05 remote2 
+T = 27.61 C 0x04e batt = 0.06 remote1 
+T = 25.27 C 0x045 batt = 0.06 remote3 
+T = 31.82 C 0x03d batt = 0.05 remote5 
+
+devel@pi5-70:~/pico_w-mqtt/pi_tcp_tests $ ./cli1
+Socket created successfully
+Connected with server successfully
+x048 -> 0.058008 V 20/06/2025 00:30:29 batt task 0x045 -> 0.055591 V 20/06/2025 00:31:00 batt task 0x046 -> 0.056396 V 20/06/2025 00:31:31 batt task 0x046 -> 0.056396 Vbatt task 0x046 -> 0.056396 V task 0x046 -> 0.056396 V 20/06/2025 00:27:54 batt task 0x045 -> 0.055591 V 20/06/2025 00:28:25 batt task 0x046 -> 0.056396 V 20/06/2025 00:28:56 batt task 0x046 -> 0.056396 Vbatt task 0x@���
+devel@pi5-70:~/pico_w-mqtt/pi_tcp_tests $ ./cli2
+Socket created successfully
+Connected with server successfully
+6 batt task 0x042 -> 0.053174 Vbatt task 0x042 -> 0.053174 V 20/06/2025 00:31:07 batt task 0x042 -> 0.053174 V 20/06/2025 00:31:38 batt task 0x041 -> 0.052368 V task 0x042 -> 0.053174 V 20/06/2025 00:28:01 batt task 0x042 -> 0.053174 Vbatt task 0x042 -> 0.053174 V 20/06/2025 00:28:32 batt task 0x042 -> 0.053174 V 20/06/2025 00:29:03 batt task 0x042 -> 0.053174 V 20/06/2025 00:29:34P����
+devel@pi5-70:~/pico_w-mqtt/pi_tcp_tests $ ./cli3
+Socket created successfully
+Connected with server successfully
+ 00:28:10 batt task 0x04e -> 0.062842 V 20/06/2025 00:28:41 batt task 0x04d -> 0.062036 Vbatt task 0x04d -> 0.062036 V 20/06/2025 00:29:12 batt task 0x04d -> 0.062036 V 20/06/2025 00:29:43 batt task 0x04e -> 0.062842 Vbatt task 0x04d -> 0.062036 V 20/06/2025 00:30:14 batt task 0x04d -> 0.062036 V 20/06/2025 00:30:45 batt task 0x04e -> 0.062842 V 20/06/2025 00:31:16 batt task 0x04e �����
+devel@pi5-70:~/pico_w-mqtt/pi_tcp_tests $ ./cli5
+Socket created successfully
+Connected with server successfully
+Connected. iperf server 192.168.1.129 4001  mqtt_ip = 0x5d01a8c0 mqtt_port = 1883  batt task 0x03d -> 0.049146 Vbatt task 0x03d -> 0.049146 Vbatt task 0x03d -> 0.049146 Vbatt task 0x03d -> 0.049146 Vbatt task 0x03d -> 0.049146 Vbatt task 0x03e -> 0.049951 Vbatt task 0x03d -> 0.049146 Vbatt task 0x03c -> 0.048340 Vbatt task 0x03d -> 0.049146 Vbatt task 0x03d -> 0.049146 Vbatt task 0й���
+devel@pi5-70:~/pico_w-mqtt/pi_tcp_tests $ iperf -c remote1
+------------------------------------------------------------
+Client connecting to remote1, TCP port 5001
+TCP window size: 16.0 KByte (default)
+------------------------------------------------------------
+[  1] local 192.168.1.93 port 46136 connected with 192.168.1.178 port 5001 (icwnd/mss/irtt=14/1460/215307)
+[ ID] Interval       Transfer     Bandwidth
+[  1] 0.0000-10.0812 sec  18.1 MBytes  15.1 Mbits/sec
+devel@pi5-70:~/pico_w-mqtt/pi_tcp_tests $ iperf -c remote2
+------------------------------------------------------------
+Client connecting to remote2, TCP port 5001
+TCP window size: 16.0 KByte (default)
+------------------------------------------------------------
+[  1] local 192.168.1.93 port 47168 connected with 192.168.1.177 port 5001 (icwnd/mss/irtt=14/1460/132427)
+[ ID] Interval       Transfer     Bandwidth
+[  1] 0.0000-10.0588 sec  18.1 MBytes  15.1 Mbits/sec
+devel@pi5-70:~/pico_w-mqtt/pi_tcp_tests $ iperf -c remote3
+------------------------------------------------------------
+Client connecting to remote3, TCP port 5001
+TCP window size: 16.0 KByte (default)
+------------------------------------------------------------
+[  1] local 192.168.1.93 port 55062 connected with 192.168.1.176 port 5001 (icwnd/mss/irtt=14/1460/250390)
+[ ID] Interval       Transfer     Bandwidth
+[  1] 0.0000-10.1206 sec  17.8 MBytes  14.7 Mbits/sec
+devel@pi5-70:~/pico_w-mqtt/pi_tcp_tests $ iperf -c remote5
+------------------------------------------------------------
+Client connecting to remote5, TCP port 5001
+TCP window size: 16.0 KByte (default)
+------------------------------------------------------------
+[  1] local 192.168.1.93 port 41056 connected with 192.168.1.129 port 5001 (icwnd/mss/irtt=14/1460/249361)
+[ ID] Interval       Transfer     Bandwidth
+[  1] 0.0000-10.0606 sec  20.1 MBytes  16.8 Mbits/sec

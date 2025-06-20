@@ -37,7 +37,7 @@ int rr[6];
 #define ADC_TASK_PRIORITY				( tskIDLE_PRIORITY + 8UL )
 //#define NTP_TASK_PRIORITY				( tskIDLE_PRIORITY + 5UL )
 #define WATCHDOG_TASK_PRIORITY			( tskIDLE_PRIORITY + 1UL )
-//#define MQTT_TASK_PRIORITY				( tskIDLE_PRIORITY + 4UL )  
+#define MQTT_TASK_PRIORITY				( tskIDLE_PRIORITY + 4UL )  
 #define SOCKET_TASK_PRIORITY			( tskIDLE_PRIORITY + 6UL )
 #define TEST_TASK_PRIORITY				( tskIDLE_PRIORITY + 2UL )
 #define BLINK_TASK_PRIORITY				( tskIDLE_PRIORITY + 3UL )
@@ -63,12 +63,6 @@ char * ptrtopofbuf;
 char client_message[BUF_SIZE]; 
 //mqtt_request_cb_t pub_mqtt_request_cb_t; 
 
-u16_t mqtt_port = 1883;
-
-char PUB_PAYLOAD_T[]="                                       ";
-char PUB_PAYLOAD_SCR_T[]="                                       ";
-char PUB_EXTRA_ARG_T[] = "test";
-u16_t payload_t_size;
 
 
 
@@ -152,7 +146,15 @@ char * ptrhead;
 char * ptrtail;
 char * ptrendofbuf;
 char * ptrtopofbuf;
-char client_message[BUF_SIZE];
+char client_message[BUF_SIZE]; 
+mqtt_request_cb_t pub_mqtt_request_cb_t; 
+
+u16_t mqtt_port = 1883;
+
+char PUB_PAYLOAD_T[]="                                       ";
+char PUB_PAYLOAD_SCR_T[]="                                       ";
+char PUB_EXTRA_ARG_T[] = "test";
+u16_t payload_t_size;
 
 /*needed for rtc 
 datetime_t t;*/
@@ -221,7 +223,407 @@ static void alarm_callback(void) {
     alarm_flg=1;
 }
 */
+#if LWIP_TCP /*LWIP_TCP*/
 
+	/** Define this to a compile-time IP address initialization
+	 * to connect anything else than IPv4 loopback
+	 */
+	#ifndef LWIP_MQTT_EXAMPLE_IPADDR_INIT
+	#if LWIP_IPV4 /*LWIP_IPV4*/
+
+			/*192.168.1.212 0xc0a801d4 LWIP_MQTT_EXAMPLE_IPADDR_INIT pi4-50*/
+			//#define LWIP_MQTT_EXAMPLE_IPADDR_INIT = IPADDR4_INIT(PP_HTONL(0xc0a801d4))
+			/*192.168.1.93 0xc0a8015d LWIP_MQTT_EXAMPLE_IPADDR_INIT pi5-70*/
+			#define LWIP_MQTT_EXAMPLE_IPADDR_INIT = IPADDR4_INIT(PP_HTONL(0xc0a8015d))
+
+	#else
+			#define LWIP_MQTT_EXAMPLE_IPADDR_INIT
+	#endif
+	#endif
+    
+
+
+static ip_addr_t mqtt_ip LWIP_MQTT_EXAMPLE_IPADDR_INIT;
+static mqtt_client_t* mqtt_client;
+ 
+static const struct mqtt_connect_client_info_t mqtt_client_info =
+{
+  CYW43_HOST_NAME,
+  "testuser", /* user */
+  "password123", /* pass */
+  10,  /* keep alive */
+  "topic_qos0", /* will_topic */
+  NULL, /* will_msg */
+  0,    /* will_qos */
+  0     /* will_retain */
+#if LWIP_ALTCP && LWIP_ALTCP_TLS
+  , NULL
+#endif
+};
+
+static void
+mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
+{
+  cyw43_arch_lwip_begin();
+  const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
+  LWIP_UNUSED_ARG(data);
+
+  LWIP_PLATFORM_DIAG(("MQTT client \"%s\" data cb: len %d, flags %d\n", client_info->client_id,
+          (int)len, (int)flags));
+          //Sunday 2 April 1:34:48 2023      got ntp response: 02/04/2023 01:34:47    2023-04-01-19-48-24 -> 2023/04/01 19:48:24
+          if (len==10) {
+               
+              if (data[0]=='1') remote_index=1;
+              if (data[0]=='2') remote_index=2;
+              if (data[0]=='3') remote_index=3;
+              if (data[0]=='4') remote_index=4;
+              if (data[0]=='5') remote_index=5;
+              if (data[0]=='6') remote_index=6;
+              if (data[0]== 'x') remote_index=255;
+              //if (remote_index==255) printf("all remotes will act on cmd\n");
+              printf("remote%d\n",remote_index);
+              if (data[1]=='1') cmd=1;
+              if (data[1]=='2') cmd=2;
+              if (data[1]=='3') cmd=3;
+              if (data[1]=='4') cmd=4;
+              if (data[1]=='5') cmd=5;
+              if (data[1]=='6') cmd=6;
+              if (data[1]=='7') cmd=7;
+              if (data[1]=='8') cmd=8;
+              if (data[1]=='9') cmd=9;
+              if (cmd==1) {
+                  strncpy(&houralarm[0],&data[2],2);
+                  strncpy(&minalarm[0],&data[4],2);
+                  strncpy(&secalarm[0],&data[6],2);
+                  //printf("%s %s %s\n",houralarm,minalarm,secalarm);
+                  alarm_hour=atoi(&houralarm[0]);
+                  alarm_min=atoi(&minalarm[0]);
+                  alarm_sec=atoi(&secalarm[0]);
+                  
+              }
+ 
+              strncpy(&bits25[0],&data[2],1);
+              tbits25=atoi(&bits25[0]);
+              printf("data[2] %c tbits25 %d \n",data[2],tbits25);
+              process_cmd(remote_index, cmd);
+ 
+          }    
+  cyw43_arch_lwip_end();
+     
+}
+void process_cmd(u8_t rem, u8_t cc) {
+    
+    //printf("0x%x 0x%x 0x%x 0x%x \n",&remotes[0], &remotes[1], &remotes[2], &CYW43_HOST_NAME);
+    //printf("%s %s %s \n",remotes[0], remotes[1], remotes[2]);
+    //printf("0x%x 0x%x 0x%x \n",&remotes[3], &remotes[4], &remotes[5]);
+    //printf("%s %s %s %s\n",remotes[3], remotes[4], remotes[5],CYW43_HOST_NAME);
+    /*
+    rr[0] = strcmp(remotes[0],CYW43_HOST_NAME);
+    rr[1]= strcmp(remotes[1],CYW43_HOST_NAME);
+    rr[2] = strcmp(remotes[2],CYW43_HOST_NAME); 
+    rr[3]= strcmp(remotes[3],CYW43_HOST_NAME);
+    rr[4] = strcmp(remotes[4],CYW43_HOST_NAME);
+    rr[5] = strcmp(remotes[5],CYW43_HOST_NAME);
+    */
+    //printf("%02d %02d %02d\n",alarm_hour,alarm_min,alarm_sec);
+    printf("rem %d cc %d %s\n",rem,cc,CYW43_HOST_NAME);
+    //printf("old %d %02d %02d %02d\n",rtc_set_flag,palarm->hour, palarm->min, palarm->sec);
+    //palarm->hour = alarm_hour;
+    //palarm->min = alarm_min;
+    //palarm->sec = alarm_sec;
+    //printf("%02d %02d %02d\n",palarm->hour,palarm->min, palarm->sec);
+
+    if(cc==1) {     
+    if(((rr[0]==0) && (rem == 1)) || (rem==255)) {
+         printf("%s executes  rr %d rem %d\n", remotes[0],rr[0],rem);
+         printf("all remotes execute\n");
+         alarm_flg=0;
+         //rtc_set_alarm(&alarm, &alarm_callback);
+    }
+    if(((rr[1]==0) && (rem == 2)) || (rem==255)) {
+        printf("%s executes  rr %d rem %d\n", remotes[0],rr[0],rem);
+        printf("all remotes execute\n");
+        alarm_flg=0;
+        //rtc_set_alarm(&alarm, &alarm_callback);
+    }  
+    if(((rr[2]==0) && (rem == 3)) || (rem==255)) {
+         printf("%s executes  rr %d rem %d\n", remotes[0],rr[0],rem);
+         printf("all remotes execute\n");
+         alarm_flg=0;
+         //rtc_set_alarm(&alarm, &alarm_callback);
+    }
+    if(((rr[3]==0) && (rem == 4)) || (rem==255)) {
+        printf("%s executes  rr %d rem %d\n", remotes[0],rr[0],rem);
+        printf("all remotes execute\n");
+        //alarm_flg=0;
+        //rtc_set_alarm(&alarm, &alarm_callback);
+    }  
+    if(((rr[4]==0) && (rem == 5)) || (rem==255)) {
+         printf("%s executes  rr %d rem %d\n", remotes[0],rr[0],rem);
+         printf("all remotes execute\n");
+		 alarm_flg=0;	
+         //rtc_set_alarm(&alarm, &alarm_callback);
+    }
+    if(((rr[5]==0) && (rem == 6)) || (rem==255)) {
+        printf("%s executes  rr %d rem %d\n", remotes[0],rr[0],rem);
+        printf("all remotes execute\n");
+        alarm_flg=0;
+        //rtc_set_alarm(&alarm, &alarm_callback);
+    }    
+    } /*cmd = 1*/
+    if(cc==2) { 
+        if(((rr[0]==0) && (rem == 1)) || (rem==255)) {
+            for(loop=0;loop<10;loop++) {
+                if(tbits25==loop) {
+                    val=loop;
+                    //gpio_clr_mask(mask);
+                    mask = bits[val] << FIRST_GPIO;
+					printf("loop %d rem %d val %d mask %d bits 0x%x \n",loop,rem,val,mask,bits[val]);
+                    sprintf(tmp,"val %d ",val);
+                    ptrhead = head_tail_helper(ptrhead, ptrtail, ptrendofbuf, ptrtopofbuf, tmp);
+                    printf("mask %d\n",mask);
+                    gpio_set_mask(mask);
+                }
+            }  
+        } /*remote1*/   
+        if(((rr[1]==0) && (rem == 2)) || (rem==255)) {
+            for(loop=0;loop<10;loop++) {
+                if(tbits25==loop) {
+                    val=loop;
+                    //gpio_clr_mask(mask);
+                    mask = bits[val] << FIRST_GPIO;
+					printf("loop %d rem %d val %d mask %d bits 0x%x \n",loop,rem,val,mask,bits[val]);
+                    sprintf(tmp,"val %d ",val);
+                    ptrhead = head_tail_helper(ptrhead, ptrtail, ptrendofbuf, ptrtopofbuf, tmp);
+                    printf("mask %d\n",mask);
+                    gpio_set_mask(mask);
+                }
+            }   
+        } /*remote2*/
+        if(((rr[2]==0) && (rem == 3)) || (rem==255)) {
+            for(loop=0;loop<10;loop++) {
+                if(tbits25==loop) {
+                    val=loop;
+                    //gpio_clr_mask(mask);
+                    mask = bits[val] << FIRST_GPIO;
+					printf("loop %d rem %d val %d mask %d bits 0x%x \n",loop,rem,val,mask,bits[val]);
+                    sprintf(tmp,"val %d ",val);
+                    ptrhead = head_tail_helper(ptrhead, ptrtail, ptrendofbuf, ptrtopofbuf, tmp);
+                    printf("mask %d\n",mask);
+                    gpio_set_mask(mask);
+                }
+            }   
+        } /*remote3*/
+        if(((rr[3]==0) && (rem == 4)) || (rem==255)) {
+            for(loop=0;loop<10;loop++) {
+                if(tbits25==loop) {
+                    val=loop;
+                    //gpio_clr_mask(mask);
+                    mask = bits[val] << FIRST_GPIO;
+					printf("loop %d rem %d val %d mask %d bits 0x%x \n",loop,rem,val,mask,bits[val]);
+                    sprintf(tmp,"val %d ",val);
+                    ptrhead = head_tail_helper(ptrhead, ptrtail, ptrendofbuf, ptrtopofbuf, tmp);
+                    printf("mask %d\n",mask);
+                    gpio_set_mask(mask);
+                }
+            }   
+        } /*remote4*/                                  
+        if(((rr[4]==0) && (rem == 5)) || (rem==255)) {
+            for(loop=0;loop<10;loop++) {
+                if(tbits25==loop) {
+                    val=loop;
+                    /*These are are fix for bits[0] &bits[1] not being read correctly*/
+                    if((bits[val]==0x746f6d65)&&(val==0)) mask = 0x3f << FIRST_GPIO;
+                    
+                    if((bits[val]==0x3565)&&(val==1)) mask = 0x3e << FIRST_GPIO;
+                    
+                    if(val>1) mask = bits[val] << FIRST_GPIO;
+                 
+                    printf("loop %d rem %d val %d mask %d bits 0x%x \n",loop,rem,val,mask,bits[val]);
+                    //sprintf(tmp,"val %d ",val);
+                    //head = head_tail_helper(head, tail, endofbuf, topofbuf, tmp);
+                     
+					//printf("mask 0x%x\n",mask);
+                     
+
+                    gpio_set_mask(mask);
+                }
+            }      
+    }/*remote5*/
+        if(((rr[5]==0) && (rem == 6)) || (rem==255)) {
+            for(loop=0;loop<10;loop++) {
+                if(tbits25==loop) {
+                    val=loop;
+                    //gpio_clr_mask(mask);
+                    mask = bits[val] << FIRST_GPIO;
+					printf("loop %d rem %d val %d mask %d bits 0x%x \n",loop,rem,val,mask,bits[val]);
+                    sprintf(tmp,"val %d ",val);
+                    ptrhead = head_tail_helper(ptrhead, ptrtail, ptrendofbuf, ptrtopofbuf, tmp);
+                    
+                    
+                    gpio_set_mask(mask);
+                }
+            }
+    }/*remote6*/
+    //printf("cmd2 %d %d %d %d \n",bit2,bit3,bit4,bit5);    
+    }/*cmd = 2*/
+    if(cc==3) {
+	if(((rr[0]==0) && (rem == 1)) || (rem==255)) {
+	    reset_remote=1;
+	    watchdog_enable(10, 1);
+	    while(reset_remote) {
+	    }
+	}
+	if(((rr[1]==0) && (rem == 2)) || (rem==255)) {
+	    reset_remote=1;
+	    watchdog_enable(10, 1);
+	    while(reset_remote) {
+	    };
+	}
+	if(((rr[2]==0) && (rem == 3)) || (rem==255)) {
+	    reset_remote=1;
+	    watchdog_enable(10, 1);
+	    while(reset_remote) {
+	    }
+	}
+	if(((rr[3]==0) && (rem == 4)) || (rem==255)) {
+	    reset_remote=1;
+	    watchdog_enable(10, 1);
+	    while(reset_remote) {
+	    }
+	}
+	if(((rr[4]==0) && (rem == 5)) || (rem==255)) {
+	    reset_remote=1;
+	    watchdog_enable(10, 1);
+	    while(reset_remote) {
+	    }
+	}
+	if(((rr[5]==0) && (rem == 6)) || (rem==255)) {
+	    reset_remote=1;
+	    watchdog_enable(10, 1);
+	    while(reset_remote) {
+	    }
+	}
+	
+    }
+    if(cc==4) {
+        printf("cc=%d\n",cc);
+        unit = 'C';
+        TEMPERATURE_UNITS='C';
+        
+    }
+    if(cc==5) {
+        printf("cc=%d\n",cc);
+        unit = 'F';
+        TEMPERATURE_UNITS='F';
+    }
+
+    if(cc==6) {
+        printf("cc=%d\n",cc);
+	printf("open task open_flg %d  close_flg %d\n",open_flg,close_flg);
+	open_flg=1;
+	close_flg=0;
+	printf("open task open_flg %d  close_flg %d\n",open_flg,close_flg);
+        
+    }
+    if(cc==7) {
+        printf("cc=%d\n",cc);
+        printf("open task open_flg %d  close_flg %d\n",open_flg,close_flg);
+	close_flg=1;
+	open_flg=0;
+	printf("open task open_flg %d  close_flg %d\n",open_flg,close_flg);
+    }
+
+}
+
+static void
+mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
+{
+  cyw43_arch_lwip_begin();  
+  const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
+
+  LWIP_PLATFORM_DIAG(("MQTT client \"%s\" publish cb: topic %s, len %d\n", client_info->client_id,
+          topic, (int)tot_len));
+  cyw43_arch_lwip_end();
+}
+
+static void
+mqtt_request_cb(void *arg, err_t err)
+{
+  cyw43_arch_lwip_begin();  
+  const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
+
+  LWIP_PLATFORM_DIAG(("MQTT client \"%s\" request cb: err %d\n", client_info->client_id, (int)err));
+  cyw43_arch_lwip_end();
+}
+static void
+mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
+{
+  cyw43_arch_lwip_begin();
+  const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
+  LWIP_UNUSED_ARG(client);
+
+  LWIP_PLATFORM_DIAG(("MQTT client \"%s\" connection cb: status %d\n", client_info->client_id, (int)status));
+    if((int)status==256) {
+	/*connecttion with broker lost*/
+	reset_remote=1;
+	watchdog_enable(10, 1);
+	while(reset_remote) {
+	}
+    }
+  if (status == MQTT_CONNECT_ACCEPTED) {
+    mqtt_sub_unsub(client,
+            "topic_qos1", 1,
+            mqtt_request_cb, LWIP_CONST_CAST(void*, client_info),
+            1);
+    mqtt_sub_unsub(client,
+            "topic_qos0", 0,
+            mqtt_request_cb, LWIP_CONST_CAST(void*, client_info),
+            1);
+  cyw43_arch_lwip_end();
+  }
+}
+#endif /*LWIP_TCP*/
+
+void
+mqtt_example_init(void)
+{
+#if LWIP_TCP
+  cyw43_arch_lwip_begin();
+  mqtt_client = mqtt_client_new();
+  //printf("mqtt_client 0x%x &mqtt_client 0x%x \n", mqtt_client,&mqtt_client);	
+   
+  //printf("mqtt_client 0x%x mqtt_client 0x%x \n", mqtt_client,mqtt_client);
+  mqtt_set_inpub_callback(mqtt_client,
+          mqtt_incoming_publish_cb,
+          mqtt_incoming_data_cb,
+          LWIP_CONST_CAST(void*, &mqtt_client_info));
+  //printf("mqtt_set_inpub_callback 0x%x\n",mqtt_set_inpub_callback);
+  
+
+  mqtt_connected = mqtt_client_connect(mqtt_client,
+          &mqtt_ip, mqtt_port,
+          mqtt_connection_cb, LWIP_CONST_CAST(void*, &mqtt_client_info),
+          &mqtt_client_info);
+  cyw43_arch_lwip_end();
+  //printf("mqtt_client_connect 0x%x\n",mqtt_client_connect);
+
+ 
+  //printf("0x%x \n",LWIP_CONST_CAST(void*, &mqtt_client_info));
+/*
+  strcpy(PUB_PAYLOAD_SCR,PUB_PAYLOAD);
+  strcat( PUB_PAYLOAD_SCR,CYW43_HOST_NAME);
+  payload_size = sizeof(PUB_PAYLOAD_SCR) + 7;
+  printf("%s  %d \n",PUB_PAYLOAD_SCR,sizeof(PUB_PAYLOAD_SCR));
+  mqtt_publish(mqtt_client,"pico/status",PUB_PAYLOAD_SCR,payload_size,2,0,pub_mqtt_request_cb_t,PUB_EXTRA_ARG);
+*/   
+          
+#endif /* LWIP_TCP */
+}
+
+#if CLIENT_TEST && !defined(IPERF_SERVER_IP)
+#error IPERF_SERVER_IP not defined
+#endif
 void adc_task(__unused void *params) {
     //bool on = false;
     adc_init();
@@ -264,6 +666,7 @@ void batt_task(__unused void *params) {
     }
 
 }
+
 void watchdog_task(__unused void *params) {
     //bool on = false;
 
@@ -276,6 +679,118 @@ void watchdog_task(__unused void *params) {
        vTaskDelay(100);
     }
 }
+ 
+void mqtt_task(__unused void *params) {
+    //bool on = false;
+    //printf("mqtt_task starts\n");
+    cyw43_arch_lwip_begin();
+mqtt_subscribe(mqtt_client,"pico/cmds", 2,pub_mqtt_request_cb_t,PUB_EXTRA_ARG_T);
+strcpy(PUB_PAYLOAD_SCR_T,PUB_PAYLOAD_T);
+  //strcat( PUB_PAYLOAD_SCR,CYW43_HOST_NAME);
+  //payload_t_size = sizeof(PUB_PAYLOAD_SCR_T);
+  
+
+cyw43_arch_lwip_end();
+    while (true) {
+        cyw43_arch_lwip_begin();
+            check_mqtt_connected = mqtt_client_is_connected(mqtt_client);
+            if (check_mqtt_connected==0) printf("mqtt_connection_lost\n");
+                mqtt_connection_lost();
+        cyw43_arch_lwip_end();
+#if 0 && configNUM_CORES > 1
+        static int last_core_id;
+        if (portGET_CORE_ID() != last_core_id) {
+            last_core_id = portGET_CORE_ID();
+            //printf("mqtt now from core %d\n", last_core_id);
+        }
+#endif
+        //cyw43_arch_gpio_put(0, on);
+        //on = !on;
+        //printf("in mqtt\n");
+        /*
+  strcpy(PUB_PAYLOAD_SCR,PUB_PAYLOAD);
+  strcat( PUB_PAYLOAD_SCR,CYW43_HOST_NAME);
+  payload_size = sizeof(PUB_PAYLOAD_SCR) + 7;
+  
+  strcpy(PUB_PAYLOAD_SCR_TEMP1,PUB_PAYLOAD_TEMP1);
+  strcat( PUB_PAYLOAD_SCR_TEMP1,CYW43_HOST_NAME);
+  payload_size_temp1 = sizeof(PUB_PAYLOAD_SCR_TEMP1) + 7;
+  */
+  //printf("%s  %d \n",PUB_PAYLOAD_SCR,sizeof(PUB_PAYLOAD_SCR));
+  //sprintf(tmp,"mqtt_connect 0x%x ",check_mqtt_connected);
+  //head = head_tail_helper(head, tail, endofbuf, topofbuf, tmp);
+
+  //sprintf(tmp,"mq_con 0x%x ",check_mqtt_connected);
+  //head = head_tail_helper(head, tail, endofbuf, topofbuf, tmp);
+  
+  	
+  /*
+  mqtt_client_is_connected 1 if connected to server, 0 otherwise 
+  */
+  cyw43_arch_lwip_begin();	
+  mqtt_publish(mqtt_client,"pico/status",PUB_PAYLOAD_SCR_T,payload_t_size,2,0,pub_mqtt_request_cb_t,PUB_EXTRA_ARG_T);
+   cyw43_arch_lwip_end();	
+        vTaskDelay(10000);
+    }
+}
+/*needed for close*/
+void close_task(__unused void *params) {
+    //bool on = false;
+    printf("close_task starts\n");
+
+	 
+    while (true) {
+        if(close_flg==1) {
+	    printf("close_task close_flg %d\n",close_flg);
+	    gpio_put(in1,0);
+	    gpio_put(in2,1);
+	    sleep_ms(500);
+	    printf("close_task setting in1 lo in2 hi \n");
+	    gpio_put(enA,1);
+	    sleep_ms(2500);
+	    printf("close_task setting in1 lo in2 hi enA hi \n");
+	    gpio_put(enA,0);
+	    printf("close_task setting in1 lo in2 hi enA lo \n");
+	}
+	else 
+	{
+	    printf("close_task close_flg %d\n",close_flg);
+	}	
+        vTaskDelay(2200);
+    }
+}
+/*needed for open/
+
+/*needed for open */
+void open_task(__unused void *params) {
+    //bool on = false;
+    printf("open_task starts\n");
+	 
+    while (true) {
+	if(open_flg==1) {
+	    printf("open_task open_flg %d\n",open_flg);
+	    gpio_put(in1,1);
+	    gpio_put(in2,0);
+	    sleep_ms(500);
+	    printf("open_task setting in1 hi in2 lo \n");
+	    printf("open_task setting in1 hi in2 lo enA hi \n");
+	    gpio_put(enA,1);
+	    sleep_ms(2500);
+	    printf("open_task setting in1 hi in2 lo enA hi \n");
+	    gpio_put(enA,0);
+	    printf("open_task setting in1 hi in2 lo enA lo \n");
+	}
+	
+	else 
+	{
+	    printf("open_task open_flg %d\n",open_flg);
+	}
+       
+        vTaskDelay(2200);
+    }
+}
+/*needed for close/
+
 /*needed for ntp*/
 /*
 void ntp_task(__unused void *params) {
@@ -324,7 +839,7 @@ void socket_task(__unused void *params) {
          	}
 		}
 
-        vTaskDelay(200);
+        vTaskDelay(2200);
 		
     }
 }
@@ -333,31 +848,45 @@ void blink_task(__unused void *params) {
     bool on = false;
     printf("blink_task starts\n");
     while (true) {
-#if 0 && configNUMBER_OF_CORES > 1
+#if 0 && configNUM_CORES > 1
         static int last_core_id;
         if (portGET_CORE_ID() != last_core_id) {
             last_core_id = portGET_CORE_ID();
-            printf("blinking now from core %d\n", last_core_id);
+            //printf("blinking now from core %d\n", last_core_id);
         }
 #endif
         cyw43_arch_gpio_put(0, on);
         on = !on;
-        vTaskDelay(200);
+
+        vTaskDelay(2200);
     }
 }
 
 void main_task(__unused void *params) {
     if (cyw43_arch_init()) {
-        printf("failed to initialise\n");
+        //printf("failed to initialise\n");
         return;
     }
-    cyw43_arch_enable_sta_mode();
-    printf("Connecting to Wi-Fi...\n");
+	watchdog_enable(10000, 1);
+	//while (wifi_connected) {
+    	cyw43_arch_enable_sta_mode();
+    	printf("Connecting to Wi-Fi...\n");
+		//sprintf(tmp,"Connecting to Wi-Fi...");
+		//head = head_tail_helper(head, tail, endofbuf, topofbuf, tmp);
     if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
-        printf("failed to connect.\n");
-        exit(1);
-    } else {
-        printf("Connected.\n");
+        	//printf("failed to connect.\n");
+		
+        	exit(1);
+    	} else {
+        	
+   			init_pico_mqtt();
+    	}
+	//}	 
+	
+    while(true) {
+        // not much to do as LED is in another task, and we're using RAW (callback) lwIP API
+ 
+        vTaskDelay(10000);
     }
     xTaskCreate(socket_task, "SOCKETThread", configMINIMAL_STACK_SIZE, NULL, SOCKET_TASK_PRIORITY, NULL);
     xTaskCreate(blink_task, "BlinkThread", configMINIMAL_STACK_SIZE, NULL, BLINK_TASK_PRIORITY, NULL);
@@ -382,6 +911,78 @@ void main_task(__unused void *params) {
     }
 
     cyw43_arch_deinit();
+}
+void mqtt_connection_lost(void) {
+    if (check_mqtt_connected==0) printf("mqtt_connection_lost\n");
+}
+
+void init_pico_mqtt(void) {
+    printf("Connected.\n");
+    //printf("%d %d %d %d\n",bit2,bit3,bit4,bit5);
+    sprintf(tmp,"Connected. iperf server %s %u  ",ip4addr_ntoa(netif_ip4_addr(netif_list)), TCP_PORT);
+    ptrhead = head_tail_helper(ptrhead, ptrtail, ptrendofbuf, ptrtopofbuf, tmp);
+    //sprintf(tmp,"starting watchdog timer task ")
+    //head = head_tail_helper(head, tail, endofbuf, topofbuf, tmp);
+    //printf("mqtt_ip = 0x%x &mqtt_ip = 0x%x\n",mqtt_ip,&mqtt_ip);
+    //printf("mqtt_port = %d &mqtt_port 0x%x\n",mqtt_port,&mqtt_port);
+    sprintf(tmp,"mqtt_ip = 0x%x mqtt_port = %d  ",mqtt_ip,mqtt_port);
+    ptrhead = head_tail_helper(ptrhead, ptrtail, ptrendofbuf, ptrtopofbuf, tmp);
+    //topofbuf = (char *)&client_message[256];
+    //printf("client_message %s\n",client_message);
+    for (int gpio = FIRST_GPIO; gpio < FIRST_GPIO + 4; gpio++) {
+        gpio_init(gpio);
+        gpio_set_dir(gpio, GPIO_OUT);
+        gpio_set_outover(gpio, GPIO_OVERRIDE_INVERT);
+    }
+    /*initialize valve gpio*/
+    gpio_init(in1);
+    gpio_set_dir(in1, GPIO_OUT);
+    gpio_init(in2);
+    gpio_set_dir(in2, GPIO_OUT);
+    gpio_init(enA);
+    gpio_set_dir(enA, GPIO_OUT);
+     
+    rr[0] = strcmp(remotes[0],CYW43_HOST_NAME);
+    rr[1]= strcmp(remotes[1],CYW43_HOST_NAME);
+    rr[2] = strcmp(remotes[2],CYW43_HOST_NAME); 
+    rr[3]= strcmp(remotes[3],CYW43_HOST_NAME);
+    rr[4] = strcmp(remotes[4],CYW43_HOST_NAME);
+    rr[5] = strcmp(remotes[5],CYW43_HOST_NAME);     
+
+    mqtt_example_init();
+    sleep_ms(1000);
+    //wifi_connected = 0;
+    xTaskCreate(watchdog_task, "WatchdogThread", configMINIMAL_STACK_SIZE, NULL, WATCHDOG_TASK_PRIORITY, NULL);
+    xTaskCreate(blink_task, "BlinkThread", configMINIMAL_STACK_SIZE, NULL, BLINK_TASK_PRIORITY, NULL);
+    xTaskCreate(socket_task, "SOCKETThread", configMINIMAL_STACK_SIZE, NULL, SOCKET_TASK_PRIORITY, NULL);
+	xTaskCreate(mqtt_task, "MQTTThread", configMINIMAL_STACK_SIZE, NULL, MQTT_TASK_PRIORITY, NULL);
+    //xTaskCreate(rtc_task, "RTCThread", configMINIMAL_STACK_SIZE, NULL, RTC_TASK_PRIORITY, NULL);
+    //xTaskCreate(ntp_task, "NTPThread", configMINIMAL_STACK_SIZE, NULL, NTP_TASK_PRIORITY, NULL);
+    //xTaskCreate(gpio_task, "GPIOThread", configMINIMAL_STACK_SIZE, NULL, GPIO_TASK_PRIORITY, NULL);
+    xTaskCreate(adc_task, "ADCThread", configMINIMAL_STACK_SIZE, NULL, ADC_TASK_PRIORITY, NULL);
+    /*setting default temperature units*/
+    xTaskCreate(open_task, "OPENThread", configMINIMAL_STACK_SIZE, NULL, OPEN_TASK_PRIORITY, NULL);
+    xTaskCreate(close_task, "CLOSEThread", configMINIMAL_STACK_SIZE, NULL, CLOSE_TASK_PRIORITY, NULL);
+    xTaskCreate(batt_task, "BATTThread", configMINIMAL_STACK_SIZE, NULL, BATT_TASK_PRIORITY, NULL);
+
+
+
+    TEMPERATURE_UNITS = 'C';
+    unit = 'C';
+    retflg=read_onboard_temperature(unit);
+
+    cyw43_arch_lwip_begin();
+#if CLIENT_TEST
+    //printf("\nReady, running iperf client\n");
+    ip_addr_t clientaddr;
+    ip4_addr_set_u32(&clientaddr, ipaddr_addr(xstr(IPERF_SERVER_IP)));
+    assert(lwiperf_start_tcp_client_default(&clientaddr, &iperf_report, NULL) != NULL);
+#else
+    //printf("\nReady, running iperf server at %s\n", ip4addr_ntoa(netif_ip4_addr(netif_list)));
+    lwiperf_start_tcp_server_default(&iperf_report, NULL);
+#endif
+    cyw43_arch_lwip_end();
+
 }
 
 void preptopidata() {
