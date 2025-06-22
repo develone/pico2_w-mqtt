@@ -2,7 +2,7 @@
  * Copyright (c) 2022 Raspberry Pi (Trading) Ltd.
  *
  * SPDX-License-Identifier: BSD-3-Clause
-06/19/25
+06/21/25
  */
 #include "tcp_debug.h"
 #include "head_tail.h"
@@ -174,20 +174,6 @@ u8_t close_flg=0;
 #error IPERF_SERVER_IP not defined
 #endif
 
-// Report IP results and exit
-static void iperf_report(void *arg, enum lwiperf_report_type report_type,
-                         const ip_addr_t *local_addr, u16_t local_port, const ip_addr_t *remote_addr, u16_t remote_port,
-                         u32_t bytes_transferred, u32_t ms_duration, u32_t bandwidth_kbitpsec) {
-    static uint32_t total_iperf_megabytes = 0;
-    uint32_t mbytes = bytes_transferred / 1024 / 1024;
-    float mbits = bandwidth_kbitpsec / 1000.0;
-
-    total_iperf_megabytes += mbytes;
-
-    printf("Completed iperf transfer of %d MBytes @ %.1f Mbits/sec\n", mbytes, mbits);
-    printf("Total iperf megabytes since start %d Mbytes\n", total_iperf_megabytes);
-}
-
 /* References for this implementation:
  * raspberry-pi-pico-c-sdk.pdf, Section '4.1.1. hardware_adc'
  * pico-examples/adc/adc_console/adc_console.c */
@@ -207,6 +193,7 @@ float read_onboard_temperature(char unit) {
 
     return -50.0f;
 }
+
 /*
 static void alarm_callback(void) {
     datetime_t t = {0};
@@ -223,6 +210,7 @@ static void alarm_callback(void) {
     alarm_flg=1;
 }
 */
+
 #if LWIP_TCP /*LWIP_TCP*/
 
 	/** Define this to a compile-time IP address initialization
@@ -233,8 +221,8 @@ static void alarm_callback(void) {
 
 			/*192.168.1.212 0xc0a801d4 LWIP_MQTT_EXAMPLE_IPADDR_INIT pi4-50*/
 			//#define LWIP_MQTT_EXAMPLE_IPADDR_INIT = IPADDR4_INIT(PP_HTONL(0xc0a801d4))
-			/*192.168.1.93 0xc0a8015d LWIP_MQTT_EXAMPLE_IPADDR_INIT pi5-70*/
-			#define LWIP_MQTT_EXAMPLE_IPADDR_INIT = IPADDR4_INIT(PP_HTONL(0xc0a8015d))
+			/*192.168.1.253 0xc0a801fd LWIP_MQTT_EXAMPLE_IPADDR_INIT pi5-90*/
+			#define LWIP_MQTT_EXAMPLE_IPADDR_INIT = IPADDR4_INIT(PP_HTONL(0xc0a801fd))
 
 	#else
 			#define LWIP_MQTT_EXAMPLE_IPADDR_INIT
@@ -624,6 +612,107 @@ mqtt_example_init(void)
 #if CLIENT_TEST && !defined(IPERF_SERVER_IP)
 #error IPERF_SERVER_IP not defined
 #endif
+
+// Report IP results and exit
+static void iperf_report(void *arg, enum lwiperf_report_type report_type,
+                         const ip_addr_t *local_addr, u16_t local_port, const ip_addr_t *remote_addr, u16_t remote_port,
+                         u32_t bytes_transferred, u32_t ms_duration, u32_t bandwidth_kbitpsec) {
+    static uint32_t total_iperf_megabytes = 0;
+    uint32_t mbytes = bytes_transferred / 1024 / 1024;
+    float mbits = bandwidth_kbitpsec / 1000.0;
+
+    total_iperf_megabytes += mbytes;
+
+    //printf("Completed iperf transfer of %d MBytes @ %.1f Mbits/sec\n", mbytes, mbits);
+    //printf("Total iperf megabytes since start %d Mbytes\n", total_iperf_megabytes);
+#if CYW43_USE_STATS
+    //printf("packets in %u packets out %u\n", CYW43_STAT_GET(PACKET_IN_COUNT), CYW43_STAT_GET(PACKET_OUT_COUNT));
+#endif
+}
+
+/*needed for close*/
+void close_task(__unused void *params) {
+    //bool on = false;
+    printf("close_task starts\n");
+
+	 
+    while (true) {
+        if(close_flg==1) {
+	    printf("close_task close_flg %d\n",close_flg);
+	    gpio_put(in1,0);
+	    gpio_put(in2,1);
+	    sleep_ms(500);
+	    printf("close_task setting in1 lo in2 hi \n");
+	    gpio_put(enA,1);
+	    sleep_ms(2500);
+	    printf("close_task setting in1 lo in2 hi enA hi \n");
+	    gpio_put(enA,0);
+	    printf("close_task setting in1 lo in2 hi enA lo \n");
+	}
+	else 
+	{
+	    printf("close_task close_flg %d\n",close_flg);
+	}	
+        vTaskDelay(2200);
+    }
+}
+/*needed for open/
+
+/*needed for open */
+void open_task(__unused void *params) {
+    //bool on = false;
+    printf("open_task starts\n");
+	 
+    while (true) {
+	if(open_flg==1) {
+	    printf("open_task open_flg %d\n",open_flg);
+	    gpio_put(in1,1);
+	    gpio_put(in2,0);
+	    sleep_ms(500);
+	    printf("open_task setting in1 hi in2 lo \n");
+	    printf("open_task setting in1 hi in2 lo enA hi \n");
+	    gpio_put(enA,1);
+	    sleep_ms(2500);
+	    printf("open_task setting in1 hi in2 lo enA hi \n");
+	    gpio_put(enA,0);
+	    printf("open_task setting in1 hi in2 lo enA lo \n");
+	}
+	
+	else 
+	{
+	    printf("open_task open_flg %d\n",open_flg);
+	}
+       
+        vTaskDelay(2200);
+    }
+}
+/*needed for close*/
+
+
+
+/*needed for ntp*/
+/*
+void ntp_task(__unused void *params) {
+    //bool on = false;
+    //printf("ntp_task starts\n");
+	run_ntp_test();
+    while (true) {
+#if 0 && configNUM_CORES > 1
+        static int last_core_id;
+        if (portGET_CORE_ID() != last_core_id) {
+            last_core_id = portGET_CORE_ID();
+            printf("ntp now from core %d\n", last_core_id);
+        }
+#endif
+        //cyw43_arch_gpio_put(0, on);
+        //on = !on;
+        
+        vTaskDelay(2200);
+    }
+}
+*/
+
+
 void adc_task(__unused void *params) {
     //bool on = false;
     adc_init();
@@ -733,85 +822,7 @@ cyw43_arch_lwip_end();
         vTaskDelay(10000);
     }
 }
-/*needed for close*/
-void close_task(__unused void *params) {
-    //bool on = false;
-    printf("close_task starts\n");
 
-	 
-    while (true) {
-        if(close_flg==1) {
-	    printf("close_task close_flg %d\n",close_flg);
-	    gpio_put(in1,0);
-	    gpio_put(in2,1);
-	    sleep_ms(500);
-	    printf("close_task setting in1 lo in2 hi \n");
-	    gpio_put(enA,1);
-	    sleep_ms(2500);
-	    printf("close_task setting in1 lo in2 hi enA hi \n");
-	    gpio_put(enA,0);
-	    printf("close_task setting in1 lo in2 hi enA lo \n");
-	}
-	else 
-	{
-	    printf("close_task close_flg %d\n",close_flg);
-	}	
-        vTaskDelay(2200);
-    }
-}
-/*needed for open/
-
-/*needed for open */
-void open_task(__unused void *params) {
-    //bool on = false;
-    printf("open_task starts\n");
-	 
-    while (true) {
-	if(open_flg==1) {
-	    printf("open_task open_flg %d\n",open_flg);
-	    gpio_put(in1,1);
-	    gpio_put(in2,0);
-	    sleep_ms(500);
-	    printf("open_task setting in1 hi in2 lo \n");
-	    printf("open_task setting in1 hi in2 lo enA hi \n");
-	    gpio_put(enA,1);
-	    sleep_ms(2500);
-	    printf("open_task setting in1 hi in2 lo enA hi \n");
-	    gpio_put(enA,0);
-	    printf("open_task setting in1 hi in2 lo enA lo \n");
-	}
-	
-	else 
-	{
-	    printf("open_task open_flg %d\n",open_flg);
-	}
-       
-        vTaskDelay(2200);
-    }
-}
-/*needed for close/
-
-/*needed for ntp*/
-/*
-void ntp_task(__unused void *params) {
-    //bool on = false;
-    //printf("ntp_task starts\n");
-	run_ntp_test();
-    while (true) {
-#if 0 && configNUM_CORES > 1
-        static int last_core_id;
-        if (portGET_CORE_ID() != last_core_id) {
-            last_core_id = portGET_CORE_ID();
-            printf("ntp now from core %d\n", last_core_id);
-        }
-#endif
-        //cyw43_arch_gpio_put(0, on);
-        //on = !on;
-        
-        vTaskDelay(2200);
-    }
-}
-*/
 void socket_task(__unused void *params) {
 	
 	//printf("socket_task starts\n");
@@ -886,27 +897,6 @@ void main_task(__unused void *params) {
     while(true) {
         // not much to do as LED is in another task, and we're using RAW (callback) lwIP API
  
-        vTaskDelay(10000);
-    }
-    xTaskCreate(socket_task, "SOCKETThread", configMINIMAL_STACK_SIZE, NULL, SOCKET_TASK_PRIORITY, NULL);
-    xTaskCreate(blink_task, "BlinkThread", configMINIMAL_STACK_SIZE, NULL, BLINK_TASK_PRIORITY, NULL);
-    xTaskCreate(adc_task, "ADCThread", configMINIMAL_STACK_SIZE, NULL, ADC_TASK_PRIORITY, NULL);
-    //xTaskCreate(batt_task, "BATTThread", configMINIMAL_STACK_SIZE, NULL, BATT_TASK_PRIORITY, NULL);
-
-    cyw43_arch_lwip_begin();
-#if CLIENT_TEST
-    printf("\nReady, running iperf client\n");
-    ip_addr_t clientaddr;
-    ip4_addr_set_u32(&clientaddr, ipaddr_addr(xstr(IPERF_SERVER_IP)));
-    assert(lwiperf_start_tcp_client_default(&clientaddr, &iperf_report, NULL) != NULL);
-#else
-    printf("\nReady, running iperf server at %s\n", ip4addr_ntoa(netif_ip4_addr(netif_list)));
-    lwiperf_start_tcp_server_default(&iperf_report, NULL);
-#endif
-    cyw43_arch_lwip_end();
-
-    while(true) {
-        // not much to do as LED is in another task, and we're using RAW (callback) lwIP API
         vTaskDelay(10000);
     }
 
@@ -985,6 +975,21 @@ void init_pico_mqtt(void) {
 
 }
 
+void vLaunch( void) {
+    TaskHandle_t task;
+    xTaskCreate(main_task, "TestMainThread", configMINIMAL_STACK_SIZE, NULL, TEST_TASK_PRIORITY, &task);
+
+#if NO_SYS && configUSE_CORE_AFFINITY && configNUMBER_OF_CORES > 1
+    // we must bind the main task to one core (well at least while the init is called)
+    // (note we only do this in NO_SYS mode, because cyw43_arch_freertos
+    // takes care of it otherwise)
+    vTaskCoreAffinitySet(task, 1);
+#endif
+
+    /* Start the tasks and timer running. */
+    vTaskStartScheduler();
+}
+
 void preptopidata() {
 sprintf(client_message,"0123456789012345678901234567890123456789012345678901234567890123\
 0123456789012345678901234567890123456789012345678901234567890123\
@@ -1028,20 +1033,7 @@ void set_rtc(datetime_t *pt, datetime_t *pt_ntp,datetime_t *palarm) {
 }
 */
 
-void vLaunch( void) {
-    TaskHandle_t task;
-    xTaskCreate(main_task, "TestMainThread", configMINIMAL_STACK_SIZE, NULL, TEST_TASK_PRIORITY, &task);
 
-#if NO_SYS && configUSE_CORE_AFFINITY && configNUMBER_OF_CORES > 1
-    // we must bind the main task to one core (well at least while the init is called)
-    // (note we only do this in NO_SYS mode, because cyw43_arch_freertos
-    // takes care of it otherwise)
-    vTaskCoreAffinitySet(task, 1);
-#endif
-
-    /* Start the tasks and timer running. */
-    vTaskStartScheduler();
-}
 
 int main( void )
 {
