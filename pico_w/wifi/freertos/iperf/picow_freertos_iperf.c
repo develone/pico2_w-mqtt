@@ -878,7 +878,7 @@ void main_task(__unused void *params) {
         //printf("failed to initialise\n");
         return;
     }
-	watchdog_enable(10000, 1);
+	watchdog_enable(12500, 1);
 	//while (wifi_connected) {
     	cyw43_arch_enable_sta_mode();
     	printf("Connecting to Wi-Fi...\n");
