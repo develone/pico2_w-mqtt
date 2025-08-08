@@ -1,0 +1,59 @@
+This is mosquitto  broker on the Internet
+devel@pi4-40:~ $ ./scripts-rpi/mosquitto/mos.sh 
+1754679721: mosquitto version 2.0.11 starting
+1754679721: Config loaded from /etc/mosquitto/mosquitto.conf.
+1754679721: Opening ipv4 listen socket on port 1883.
+1754679721: Opening ipv6 listen socket on port 1883.
+1754679721: mosquitto version 2.0.11 running
+devel@pi4-40:~ $ 1754679722: New connection from 172.59.41.61:55370 on port 1883.
+1754679722: New client connected from 172.59.41.61:55370 as auto-5001CAEA-9697-A545-4BC3-270DF2EF1F15 (p2, c1, k60, u'testuser').
+1754679726: New connection from 172.59.41.61:55365 on port 1883.
+1754679726: New client connected from 172.59.41.61:55365 as remote4 (p2, c1, k10, u'testuser').
+
+1754679930: New connection from ::1:59948 on port 1883.
+1754679930: New client connected from ::1:59948 as auto-8E10C967-4351-728D-D104-8E2E6DAAD382 (p2, c1, k60, u'testuser').
+
+1754680140: New connection from 172.59.41.61:11344 on port 1883.
+1754680140: New client connected from 172.59.41.61:11344 as auto-CE66B7F6-5889-9EBB-F098-4EC9817604B7 (p2, c1, k60, u'testuser').
+
+This new client running on same host as the broker on the Internet.
+
+devel@pi4-40:~ $ ./scripts-rpi/mosquitto/mos-q.sh 
+T = 30.88 C 0x038 batt = 0.05 remote4 
+T = 30.88 C 0x037 batt = 0.04 remote4 
+T = 30.88 C 0x037 batt = 0.04 remote4 
+T = 30.88 C 0x037 batt = 0.04 remote4
+
+This new client running on a host connect to tmo-wifi.
+devel@pi5-70:~ $ mosquitto_sub -h 'pi4-40' -t 'pico/status' -u 'testuser' -P 'password123'
+T = 30.88 C 0x038 batt = 0.05 remote4 
+T = 30.88 C 0x038 batt = 0.05 remote4 
+
+This new client running on a host connect to tmo-wifi.
+
+devel@pi5-90:~/pico_w-mqtt $ ./pico-cmd-F 'pi4-40'
+
+T = 30.42 C 0x038 batt = 0.05 remote4 
+T = 30.42 C 0x038 batt = 0.05 remote4 
+T = 86.75 F 0x038 batt = 0.05 remote4 
+T = 86.75 F 0x038 batt = 0.05 remote4 
+T = 86.75 F 0x037 batt = 0.04 remote4 
+T = 86.75 F 0x037 batt = 0.04 remote4 
+
+This new client running on a host connect to tmo-wifi.
+
+devel@pi5-90:~/pico_w-mqtt $ ./pico-cmd-reset 'pi4-40'
+
+This new client running on a host connect to tmo-wifi.
+
+devel@pi5-70:~/test-MQTT-IP/pico2_w-mqtt/pi_tcp_tests $ ./cli4
+Socket created successfully
+Connected with server successfully
+Connected. iperf server 192.168.12.134 4001  mqtt_ip = 0xb3bac5a2 mqtt_port = 1883  batt task 0x03d -> 0.049146 V 08/08/2025 19:19:56
+batt task 0x039 -> 0.045923 V 08/08/2025 19:20:27
+batt task 0x037 -> 0.044312 V 08/08/2025 19:20:58
+batt task 0x037 -> 0.044312 Vbatt task 0x038 -> 0.045117 V 08/08/2025 19:21:29
+batt task 0x038 -> 0.045117 V 08/08/2025 19:22:00
+batt task 0x038 -> 0.И���
+
+ 
