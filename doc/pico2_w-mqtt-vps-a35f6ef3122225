@@ -1,0 +1,111 @@
+devel@pi5-90:~ $ ssh -X ubuntu@100.120.44.11
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.8.0-90-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Mon Dec 22 19:02:55 UTC 2025
+
+  System load:            0.16
+  Usage of /:             30.5% of 71.61GB
+  Memory usage:           4%
+  Swap usage:             0%
+  Processes:              186
+  Users logged in:        0
+  IPv4 address for ens16: 40.160.235.122
+  IPv6 address for ens16: 2604:2dc0:305::4:0:3f
+  IPv6 address for ens16: 2604:2dc0:305:0:f816:3eff:fe2e:f865
+
+ * Strictly confined Kubernetes makes edge and IoT secure. Learn how MicroK8s
+   just raised the bar for easy, resilient and secure K8s cluster deployment.
+
+   https://ubuntu.com/engage/secure-kubernetes-at-the-edge
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+39 additional security updates can be applied with ESM Apps.
+Learn more about enabling ESM Apps service at https://ubuntu.com/esm
+
+
+Last login: Mon Dec 22 16:53:30 2025 from 172.59.42.177
+ubuntu@vps-a35f6ef3:~$ ./scripts-rpi/mosquitto/mos.sh 
+1766430191: mosquitto version 2.0.18 starting
+1766430191: Config loaded from /etc/mosquitto/mosquitto.conf.
+1766430191: Opening ipv4 listen socket on port 1883.
+1766430191: Opening ipv6 listen socket on port 1883.
+1766430191: mosquitto version 2.0.18 running
+ubuntu@vps-a35f6ef3:~$ 1766430248: New connection from 172.59.42.177:11302 on port 1883.
+1766430248: New client connected from 172.59.42.177:11302 as remote3 (p2, c1, k10, u'testuser').
+1766430360: New connection from 100.89.157.49:48164 on port 1883.
+1766430360: New client connected from 100.89.157.49:48164 as auto-A25F06DC-1979-AB8D-6B51-020CF99AD223 (p2, c1, k60, u'testuser').
+
+devel@pi5-90:~ $ mosquitto_sub -h '100.120.44.11' -t 'pico/status' -u 'testuser' -P 'password123'
+T = 32.76 C 0x03d batt = 0.05 remote3 
+T = 32.76 C 0x03d batt = 0.05 remote3 
+T = 32.76 C 0x03d batt = 0.05 remote3 
+T = 32.76 C 0x03d batt = 0.05 remote3 
+T = 32.29 C 0x03d batt = 0.05 remote3 
+T = 32.29 C 0x03d batt = 0.05 remote3 
+T = 32.29 C 0x03d batt = 0.05 remote3 
+T = 32.29 C 0x03d batt = 0.05 remote3
+
+devel@pi5-90:~/pico2_w-mqtt/pi_tcp_tests $ sudo nmap -sP 192.168.12.0/24
+Starting Nmap 7.93 ( https://nmap.org ) at 2025-12-22 12:10 MST
+Nmap scan report for TMO-G4AR.lan (192.168.12.1)
+Host is up (0.0040s latency).
+MAC Address: 18:A5:FF:FA:CE:06 (Unknown)
+Nmap scan report for 192.168.12.118
+Host is up (0.032s latency).
+MAC Address: 24:CE:33:96:B7:22 (Amazon Technologies)
+Nmap scan report for remote3.lan (192.168.12.133)
+Host is up (0.12s latency).
+MAC Address: 2C:CF:67:F2:DE:99 (Unknown)
+Nmap scan report for HP4FBC22.lan (192.168.12.138)
+Host is up (0.12s latency).
+MAC Address: D0:AD:08:4F:BC:22 (Unknown)
+Nmap scan report for 192.168.12.140
+Host is up (0.026s latency).
+MAC Address: B4:E4:54:B5:43:64 (Amazon Technologies)
+Nmap scan report for pi4-60 (192.168.12.160)
+Host is up (0.023s latency).
+MAC Address: DC:A6:32:09:35:24 (Raspberry Pi Trading)
+Nmap scan report for TMOBILE_MESH_AP.lan (192.168.12.200)
+Host is up (0.018s latency).
+MAC Address: 3C:F0:83:C3:9F:DF (Unknown)
+Nmap scan report for pi5-70 (192.168.12.208)
+Host is up (0.033s latency).
+MAC Address: 2C:CF:67:00:3B:AF (Unknown)
+Nmap scan report for nixplay_W10F-09.lan (192.168.12.225)
+Host is up (0.11s latency).
+MAC Address: C0:E7:BF:63:B7:2D (Sichuan AI-Link Technology)
+Nmap scan report for amazon-c9fc00e54.lan (192.168.12.231)
+Host is up (0.031s latency).
+MAC Address: 0C:EE:99:6E:31:6F (Amazon Technologies)
+Nmap scan report for pi5-80 (192.168.12.237)
+Host is up (0.10s latency).
+MAC Address: 2C:CF:67:34:C6:53 (Unknown)
+Nmap scan report for pi5-90.lan (192.168.12.196)
+Host is up.
+Nmap done: 256 IP addresses (12 hosts up) scanned in 2.23 seconds
+
+devel@pi5-90:~/pico2_w-mqtt/pi_tcp_tests $ ./cli3
+Socket created successfully
+Connected with server successfully
+-> 0.049146 V 22/12/2025 19:11:54
+batt task 0x03d -> 0.049146 V 22/12/2025 19:12:25
+batt task 0x03d -> 0.049146 V 22/12/2025 19:12:56
+batt task 0x03e -> 0.049951 Vbatt task 0x03d -> 0.049146 V task 0x03d -> 0.049146 V 22/12/2025 19:09:19
+batt task 0x03d -> 0.049146 V 22/12/2025 19:09:50
+batt task 0x03e -> 0.049951 V 22/12/2025 19:10:21
+batt task 0x03d -> 0.049146 Vbatt task 0x03c -Ѓ���
+
+devel@pi5-90:~/pico2_w-mqtt $ ./pico-cmd-reset 100.120.44.11
+
+devel@pi5-90:~/pico2_w-mqtt/pi_tcp_tests $ ./cli3
+Socket created successfully
+Connected with server successfully
+Connected. iperf server 192.168.12.133 4001  mqtt_ip = 0x7aeba028 mqtt_port = 1883  batt task 0x03d -> 0.049146 V 22/12/2025 19:15:33
+6789012345678901234567890123456789012345678901234567890123012345678901234567890123456789012345678901234567890123456789012301234567890123456789012345678901234567890123456789012345678901230123456789012345678901234567890123456789012345678901234567890123Wi��
